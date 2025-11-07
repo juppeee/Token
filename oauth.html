@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <title>TikTok OAuth Callback</title>
+  <style>
+    :root { --bg:#0b1020; --card:#121a35; --ink:#e8ecff; --muted:#a9b1d6; --accent:#5b8cff; --ok:#3adb76; --err:#ff6b6b; }
+    *{box-sizing:border-box} body{margin:0; font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif; background:var(--bg); color:var(--ink);} 
+    .wrap{max-width:900px; margin:6vh auto; padding:24px}
+    .card{background:var(--card); border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:24px; box-shadow:0 10px 40px rgba(0,0,0,.25)}
+    h1{margin:0 0 8px; font-size:28px}
+    p{margin:.5rem 0; color:var(--muted)}
+    .kv{display:grid; grid-template-columns:160px 1fr; gap:8px 16px; margin:16px 0}
+    .kv div{kbd,span}
+    kbd{background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); padding:2px 6px; border-radius:6px; font-size:13px}
+    .codebox{position:relative; margin-top:12px}
+    textarea{width:100%; min-height:120px; padding:12px 44px 12px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.06); color:var(--ink); font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:14px}
+    .btn{display:inline-flex; align-items:center; gap:8px; border:1px solid rgba(255,255,255,.16); background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.06)); color:var(--ink); padding:10px 14px; border-radius:12px; cursor:pointer; text-decoration:none;}
+    .btn:hover{border-color:rgba(255,255,255,.28)}
+    .btn.primary{background:linear-gradient(180deg, rgba(91,140,255,.35), rgba(91,140,255,.25)); border-color:rgba(91,140,255,.55)}
+    .copy{position:absolute; right:8px; top:8px}
+    .status{margin-top:12px; font-size:14px}
+    .ok{color:var(--ok)} .err{color:var(--err)}
+    .foot{margin-top:20px; font-size:13px; color:var(--muted)}
+    .hidden{display:none}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>TikTok OAuth Callback</h1>
+      <p>Diese Seite liest die Parameter <kbd>code</kbd> und <kbd>state</kbd> aus der Redirect‑URL und zeigt sie an, damit du den Code im lokalen Skript einfügen kannst.</p>
+
+      <div class="kv">
+        <div><kbd>state</kbd></div>
+        <div class="mono" id="stateValue">–</div>
+        <div><kbd>error</kbd></div>
+        <div class="mono" id="errorValue">–</div>
+      </div>
+
+      <div class="codebox">
+        <label for="codeBox" class="mono">Authorization Code</label>
+        <textarea id="codeBox" readonly placeholder="Kein ?code in der URL gefunden…"></textarea>
+        <button id="copyBtn" class="btn copy" type="button" title="in die Zwischenablage kopieren">Kopieren</button>
+      </div>
+
+      <div class="status" id="statusLine"></div>
+
+      <div class="foot">
+        <p>
+          Tipp: Öffne die von deinem Tool generierte Login‑URL, melde dich bei TikTok an und lass dich hierher zurückleiten.
+          Kopiere dann den <em>Authorization Code</em> und füge ihn in dein lokales Script ein.
+        </p>
+        <details>
+          <summary>Was wird hier genau gemacht?</summary>
+          <p>Nur die URL‑Parameter werden clientseitig gelesen und angezeigt. Es werden keine Geheimnisse gespeichert oder an Server gesendet.</p>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function(){
+      function parseAllParams(){
+        // Prefer Query (?code=…), but also support fragment (#code=…)
+        const query = new URLSearchParams(window.location.search || "");
+        const fragStr = window.location.hash ? window.location.hash.replace(/^#/, "") : "";
+        const hash = new URLSearchParams(fragStr);
+        // Some providers might use different names; cover common ones just in case
+        const code = query.get("code") || hash.get("code") || query.get("auth_code") || hash.get("auth_code") || "";
+        const state = query.get("state") || hash.get("state") || "";
+        const error = query.get("error") || hash.get("error") || "";
+        return { code, state, error };
+      }
+
+      const els = {
+        code: document.getElementById('codeBox'),
+        state: document.getElementById('stateValue'),
+        error: document.getElementById('errorValue'),
+        copy: document.getElementById('copyBtn'),
+        status: document.getElementById('statusLine')
+      };
+
+      const { code, state, error } = parseAllParams();
+      els.state.textContent = state || '–';
+      els.error.textContent = error || '–';
+
+      if(code){
+        els.code.value = code;
+        els.status.innerHTML = '<span class="ok">✓ Code gefunden.</span>'; 
+        // Auto-select for quick copy
+        els.code.focus();
+        els.code.select();
+      } else {
+        els.status.innerHTML = '<span class="err">Kein Code in der URL. Wurde die Redirect‑URI exakt im TikTok‑Portal hinterlegt?</span>';
+      }
+
+      els.copy.addEventListener('click', async () => {
+        try{
+          if(!els.code.value){ return; }
+          await navigator.clipboard.writeText(els.code.value);
+          els.status.innerHTML = '<span class="ok">In die Zwischenablage kopiert.</span>';
+        }catch(e){
+          // Fallback: mark text for manual copy
+          els.code.focus();
+          els.code.select();
+          els.status.innerHTML = '<span class="err">Konnte nicht automatisch kopieren. Text ist markiert – bitte manuell kopieren.</span>';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
